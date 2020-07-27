@@ -1,0 +1,17 @@
+Everett Badeaux
+
+Instructions:
+
+1.) To compile this program type the following line in wsl or on your linux terminal
+    "gcc -g -Wall  main.c -o test.exe"
+
+2.) To run this program type the following line in wsl or on your linux terminal
+    "./test.exe"
+
+3.) Console output will be displayed giving examples of valid input to provide.
+
+Misc:
+
+1.) You may want to create a fake process to test the "PROCESS PROCESS_NUM" command.
+
+2.) You can create a fake process on your cpu by running "sleep 600 &" inside of your terminal.

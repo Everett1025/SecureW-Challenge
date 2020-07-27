@@ -1,0 +1,161 @@
+Everett Badeaux
+
+These are the major assumptions I made when writing this program.
+
+
+Assumptions:
+    1.) I assumed user input was taken after the two child process were created.  Therefore two child process are created and waiting to read data from the pipe
+        written by the parent.
+
+    2.) I assumed child one would only receive a process id.  I then assumed child one would verify that the process id was a valid & running process.
+
+    3.) I assumed child two would receive a linux path.  I then assumed the child would attempt to open that path to see if it was a valid path.
+
+    3.) I assumed that the json file would consist of the data we sent and the data the child process fetched.
+
+        Example 1: 
+        $ ./test.exe
+        PATH /mnt/c/Users/Everett/Documents/Personal/SecureWorksChallenge/blah.txt
+
+        JSON File Contents:
+
+        {"results": [{"sent": "/mnt/c/Users/Everett/Documents/Personal/SecureWorksChallenge/blah.txt","receive": "blah blah blah blah"}]}
+
+        Example 2: 
+        $ ./test.exe
+        PATH NOTVALIDPATH
+
+        JSON File Contents:
+
+        {"results": [{"sent": "NOTVALIDPATH","receive": "(null)"}]}
+
+        Example 3:
+        $ ./test.exe
+        PROCESS 5432
+
+        JSON File Contents:
+        {"results": [{"sent": "4521","receive": "PID[2071]: Process ID: 4521 is not an active process.}]}
+
+
+        Example 4:
+        $ ./test.exe
+        PROCESS 2078
+
+        JSON FILE CONTENTS:
+
+        {"results": [{
+            "sent": "2078",
+            "receive": "PID[2080]: Process ID: 2078 is an active process.",
+            "receive2: Linux 4.19.104-microsoft-standard (DESKTOP-8STQMQQ)     07/24/20        _x86_64_        (32 CPU)
+                        13:27:49     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+                        13:27:49     all    0.00    0.00    0.02    0.00    0.00    0.00    0.00    0.00    0.00   99.97
+        }]}
+
+
+    4.) I assumed that if the process was not a running process, we would not report CPU information.
+
+    5.) I assumed that we would use mpstat to gather CPU information and only run this when the provided process is valid.
+
+    6.) I also assumed we could specify the type of input we are providing so that we know which process to send the input to. (Makes more sense when running program)
+            EXAMPLE: $ ./test.exe
+            PATH "Your Path"
+
+            Example: $ ./test.exe
+            PROCESS "1432"
+    
+    7.) I also assumed to make the parent process, you must wait for the child process to finish.
+
+    8.) I also assumed you had mpstat installed.
+
+    9. I also assumed the user would not input more than 1024 bytes. If he does, the program aborts.
+
+
+
+    Layout of my program:
+
+    1. Create file descriptors for process communication
+    2. Create two child processes
+    3. Children wait for on pipe for parent to send data
+    4. Take user input (calloc)
+    5. Parse input (calloc)
+    6. Kill the child process we will not be using
+    7. Send the input to the correct child
+    8. Parent wait for child pid to finish
+        // Branch One:                                      // Branch Two:
+        a.) Read Process                                    a.) Read Process
+        b.) Determine if Process is real                    b.) Determine if file is real by attempting to read
+        C.) Write Results to json file                      c.) If readable write contents to JSON File
+        d.) Close JSON                                      d.) Close JSON
+        e.) Return to Parent                                e.) Return to Parent
+    9.) Program exited Successfully
+
+    I also have a condition that if the input the user provides is not correct, exit the program.
+
+
+Improvements:
+
+    1.) I was unable to successfully report cpu information into the json file, but I was able to get cpu information 
+    printed to the console.
+
+        My idea to storing the mpstat data inside of the json was the following.
+
+        a.) Set up the execl call.
+                char *binaryPath = "/bin/mpstat";
+        b.) Then once we determined the process was real, direct the terminal mpstat output to a file
+                freopen("data.txt", "w", stdout);
+        c.) Run the execl call
+                execl(binaryPath, binaryPath, NULL)
+        d.) Redirect stdout backto the terminal
+                freopen("/dev/tty", "w", stdout);
+        e.) I then would read the data.txt file into a char * array and use a file descriptor to write the array to the
+            json file descriptor. But for some reason the freopen calls were not working as expected, and I was unable
+            to fix it properly within the allotted time.
+        My new approach would be to duplicate the stdout file descriptor using dup() and then avoid using freopen
+        all together.
+
+    2.) I would also like to change the way I am sending the amount of bytes when using the file descriptors.
+
+            For example I think the way I am specifying the amount of bytes is messy and could definitely be done better.
+
+            write(pipefds1[1], args[1], (1024 - strlen("PROCESS ")));
+    
+    3.) Another improvement I would like to make is when taking in input and using the command PROCESS and PATH. I would like to keep the user from entering
+    data that exceeds the max char bytes a file path can be on a linux file system and keep the user from enter a process ID greater than the possible linux 
+    process id number.
+
+    4.) I would also like to provide more unit tests for my functions that are outside of main.
+
+    5.) I also had limited experience with makefiles so my makefile is not very complex. I would have like to improve it, but I ran out of time.
+
+
+
+Safety Features:
+    1.) The first safety feature I implement is when reading input form the user, I guarentee the count of the input
+        never exceeds the size of the buffer.  Otherwise, we would be prone to a bufferoverflow.
+    
+    2.) Guarentee the program exits and frees all memory if the provided input does not adhere to the input format I discussed
+        in the instructions.
+
+    3.) There are no race conditions.  All processes are running in the proper order.  Often times when programming with multiple 
+    processes, the processes attempt to interact with stored data at the wrong time.
+    
+Accepting Multiple Processes:
+
+    1.) I would create a parent process and have it accepting user input inside of a loop.
+    2.) The parent process would continue accepting user input until the user provided a key word ("EXIT").
+    3.) The parent process would fork and allow the child to handle the process requested by the user.
+    4.) Once the child finishes, the parent begins accepting input for a new process.
+
+Unit Tests:
+    I ran out of time when creating my unit tests, so they are not very in depth tests. The unit tests only test my 3 functions outside of main.
+
+    The unit tests test that user input is read and stored correctly. The unit tests also test that my read file function reads a file correctly and stores
+    it properly in a buffer.  
+    
+    I would have liked to a function to test my program for when user input was being broken apart in to seperate arguments.
+
+Valgrind:
+
+    I ran this program in Valgrind and I was able to successfully free all memory that was dynamically allocated.
+
+    There is one error in one context that I was unable to find.  I guarentee I would be able to find this if I had a little bit more time.
